@@ -2,11 +2,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import ScheduleCard from "@/components/ScheduleCard";
+import ScheduleCardSkeleton from "@/components/ScheduleCardSkeleton";
 import { getAllSchedules, ScheduleData, vestingProgress, formatDate } from "@/lib/stellar";
 import { useWallet } from "@/lib/WalletContext";
 import Link from "next/link";
 
 type RoleFilter = "all" | "grantor" | "beneficiary";
+type SortKey = "newest" | "ending-soon" | "largest-amount" | "status";
 const PAGE_SIZE = 10;
 
 function buildCSV(rows: ScheduleData[]): string {
@@ -45,6 +47,7 @@ export default function DashboardPage() {
   const [schedules, setSchedules] = useState<ScheduleData[]>([]);
   const [loading, setLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
 
@@ -69,19 +72,42 @@ export default function DashboardPage() {
     return schedules.filter(s => s.beneficiary === publicKey);
   }, [schedules, roleFilter, publicKey]);
 
-  // Apply address search on top of role-filtered list
+  // Apply sort on top of the role-filtered list
+  const sortedSchedules = useMemo(() => {
+    const list = [...filteredSchedules];
+    const now = Math.floor(Date.now() / 1000);
+    switch (sortBy) {
+      case "newest":
+        list.sort((a, b) => b.id - a.id);
+        break;
+      case "ending-soon":
+        list.sort((a, b) => (a.start_time + a.duration) - (b.start_time + b.duration));
+        break;
+      case "largest-amount":
+        list.sort((a, b) => (b.total_amount < a.total_amount ? -1 : b.total_amount > a.total_amount ? 1 : 0));
+        break;
+      case "status": {
+        const statusOrder = (s: ScheduleData) => s.revoked ? 2 : vestingProgress(s, now) >= 100 ? 0 : 1;
+        list.sort((a, b) => statusOrder(a) - statusOrder(b));
+        break;
+      }
+    }
+    return list;
+  }, [filteredSchedules, sortBy]);
+
+  // Apply address search on top of sorted list
   const q = query.trim().toLowerCase();
   const searchFiltered = useMemo(() => {
-    if (!q) return filteredSchedules;
-    return filteredSchedules.filter(
+    if (!q) return sortedSchedules;
+    return sortedSchedules.filter(
       s =>
         s.grantor.toLowerCase().includes(q) ||
         s.beneficiary.toLowerCase().includes(q)
     );
-  }, [filteredSchedules, q]);
+  }, [sortedSchedules, q]);
 
   // Reset to page 1 whenever the filtered set changes
-  useEffect(() => { setPage(1); }, [searchFiltered.length, roleFilter]);
+  useEffect(() => { setPage(1); }, [searchFiltered.length, roleFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(searchFiltered.length / PAGE_SIZE));
   const pageStart = (page - 1) * PAGE_SIZE;
@@ -149,6 +175,24 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Sort control */}
+        {searchFiltered.length > 0 && (
+          <div className="flex items-center gap-2 mb-5">
+            <label htmlFor="sort-select" className="text-xs text-zinc-500">Sort by</label>
+            <select
+              id="sort-select"
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortKey)}
+              className="text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-zinc-300 outline-none focus:border-violet-500/50 transition-colors"
+            >
+              <option value="newest">Newest first</option>
+              <option value="ending-soon">Ending soonest</option>
+              <option value="largest-amount">Largest amount</option>
+              <option value="status">Status (vesting → fully vested → revoked)</option>
+            </select>
+          </div>
+        )}
+
         {/* Address search input */}
         <div className="relative mb-6">
           <input
@@ -173,8 +217,8 @@ export default function DashboardPage() {
         {/* Schedule grid */}
         {loading && schedules.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-56 rounded-2xl bg-white/3 animate-pulse" />
+            {[1, 2, 3].map(i => (
+              <ScheduleCardSkeleton key={i} />
             ))}
           </div>
         ) : searchFiltered.length === 0 ? (

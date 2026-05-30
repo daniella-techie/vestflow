@@ -203,8 +203,9 @@ export function stroopsToXlm(s: bigint): string {
   return (Number(s) / 10_000_000).toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
-export function truncate(addr: string): string {
-  return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+export function truncate(addr: string, prefixLen = 6, suffixLen = 4): string {
+  if (addr.length <= prefixLen + suffixLen + 3) return addr;
+  return `${addr.slice(0, prefixLen)}...${addr.slice(-suffixLen)}`;
 }
 
 export function vestingProgress(s: ScheduleData, now: number): number {

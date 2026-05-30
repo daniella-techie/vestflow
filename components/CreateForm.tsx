@@ -72,15 +72,15 @@ export default function CreateForm() {
 
         <div className="flex flex-col gap-4 bg-zinc-900/50 rounded-xl p-4 border border-zinc-800">
           <SummaryItem label="Beneficiary" value={form.beneficiary} full />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SummaryItem label="Amount" value={`${form.amount} XLM`} />
             <SummaryItem label="Vesting Type" value={form.kind} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SummaryItem label="Start Date" value={`${form.startDate} ${form.startTime}`} />
             <SummaryItem label="Duration" value={`${form.durationDays} days`} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SummaryItem label="Cliff" value={form.kind === "Cliff" ? `${form.cliffDays} days` : "None"} />
             <SummaryItem label="Revocable" value={form.revocable ? "Yes" : "No"} />
           </div>
@@ -120,7 +120,7 @@ export default function CreateForm() {
         <input type="number" placeholder="0.00" min="0.0000001" step="any" value={form.amount} onChange={e => set("amount", e.target.value)} required className="input" />
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Start Date">
           <input type="date" value={form.startDate} onChange={e => set("startDate", e.target.value)} required className="input" />
         </Field>

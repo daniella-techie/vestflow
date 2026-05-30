@@ -54,9 +54,9 @@ export default function ScheduleCard({ schedule, onAction }: { schedule: Schedul
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}`}>{statusLabel}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400">
-        <div><span className="text-zinc-600">Grantor</span><p className="font-mono text-zinc-300 mt-0.5">{truncate(schedule.grantor)}</p></div>
-        <div><span className="text-zinc-600">Beneficiary</span><p className="font-mono text-zinc-300 mt-0.5">{truncate(schedule.beneficiary)}</p></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-zinc-400">
+        <div><span className="text-zinc-600">Grantor</span><p className="font-mono text-zinc-300 mt-0.5"><span className="sm:hidden">{truncate(schedule.grantor, 4, 3)}</span><span className="hidden sm:inline">{truncate(schedule.grantor)}</span></p></div>
+        <div><span className="text-zinc-600">Beneficiary</span><p className="font-mono text-zinc-300 mt-0.5"><span className="sm:hidden">{truncate(schedule.beneficiary, 4, 3)}</span><span className="hidden sm:inline">{truncate(schedule.beneficiary)}</span></p></div>
         <div><span className="text-zinc-600">Total</span><p className="text-zinc-300 mt-0.5">{stroopsToXlm(schedule.total_amount)} XLM</p></div>
         <div><span className="text-zinc-600">Claimed</span><p className="text-zinc-300 mt-0.5">{stroopsToXlm(schedule.claimed)} XLM</p></div>
         <div><span className="text-zinc-600">Starts</span><p className="text-zinc-300 mt-0.5">{formatDate(schedule.start_time)}</p></div>
