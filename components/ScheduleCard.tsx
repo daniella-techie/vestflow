@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ScheduleData, stroopsToXlm, truncate, vestingProgress, formatDate, claimVested, revokeSchedule, parseContractError } from "@/lib/stellar";
+import { ScheduleData, stroopsToXlm, truncate, vestingProgress, formatDate, claimVested, revokeSchedule, parseContractError, NATIVE_TOKEN } from "@/lib/stellar";
 import { useWallet } from "@/lib/WalletContext";
 import VestingChart from "@/components/VestingChart";
 import CopyButton from "@/components/CopyButton";
@@ -18,6 +18,8 @@ export default function ScheduleCard({ schedule, onAction }: { schedule: Schedul
   const isGrantor = publicKey === schedule.grantor;
   const vested = BigInt(Math.floor(Number(schedule.total_amount) * progress / 100));
   const claimableAmt = vested > schedule.claimed ? vested - schedule.claimed : BigInt(0);
+  const isNative = schedule.token === NATIVE_TOKEN;
+  const tokenSymbol = isNative ? "XLM" : `Token (${truncate(schedule.token, 4, 4)})`;
 
   const handleClaim = async () => {
     if (!publicKey) return;
@@ -77,6 +79,9 @@ export default function ScheduleCard({ schedule, onAction }: { schedule: Schedul
         <div><span className="text-zinc-600">Claimed</span><p className="text-zinc-300 mt-0.5">{stroopsToXlm(schedule.claimed)} XLM</p></div>
         <div><span className="text-zinc-600">Starts</span><p className="text-zinc-300 mt-0.5">{formatDate(schedule.start_time)}</p></div>
         <div><span className="text-zinc-600">Ends</span><p className="text-zinc-300 mt-0.5">{formatDate(schedule.start_time + schedule.duration)}</p></div>
+        {!isNative && (
+          <div className="col-span-2"><span className="text-zinc-600">Token Contract</span><p className="font-mono text-zinc-300 mt-0.5 break-all">{schedule.token}</p></div>
+        )}
       </div>
 
       <div>
@@ -119,7 +124,7 @@ export default function ScheduleCard({ schedule, onAction }: { schedule: Schedul
         <div className="flex gap-2 mt-1">
           {isBeneficiary && claimableAmt > 0n && (
             <button onClick={handleClaim} disabled={!!loading} className="btn-primary text-xs rounded-lg px-3 py-1.5 font-semibold text-white disabled:opacity-60">
-              {loading === "claim" ? "Processing…" : `Claim ${stroopsToXlm(claimableAmt)} XLM`}
+              {loading === "claim" ? "Processing…" : `Claim ${stroopsToXlm(claimableAmt)} ${tokenSymbol}`}
             </button>
           )}
           {isGrantor && schedule.revocable && progress < 100 && (
