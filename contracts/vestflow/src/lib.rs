@@ -43,37 +43,7 @@
 //! | `"No pending upgrade"` | Upgrade execution/cancellation attempted without an announcement |
 //! | `"Upgrade timelock still active"` | Upgrade execution attempted before 48 hours elapsed |
 //! | `"Upgrade executable time overflow"` | Upgrade announcement timestamp cannot safely add the timelock |
-//!
-//! ## Events
-//!
-//! All state transitions emit structured events for indexers and monitoring systems.
-//!
-//! | Event Name    | Topics                                    | Data                                                                                      |
-//! |---------------|-------------------------------------------|-------------------------------------------------------------------------------------------|
-//! | `created`     | (symbol, schedule_id)                     | (grantor, beneficiary, token, amount, start, duration, cliff, lockup, kind, revocable)    |
-//! | `claimed`     | (symbol, schedule_id)                     | (beneficiary, token, amount_claimed, total_claimed, timestamp)                            |
-//! | `revoked`     | (symbol, schedule_id)                     | (grantor, token, unvested_amount, vested_amount, timestamp)                               |
-//! | `paused`      | (symbol, schedule_id)                     | (grantor, paused_at)                                                                      |
-//! | `resumed`     | (symbol, schedule_id)                     | (grantor, pause_duration, timestamp)                                                      |
-//! | `bnf_chng`    | (symbol, schedule_id)                     | (old_beneficiary, new_beneficiary, timestamp)                                             |
-//! | `upgr_auth`   | (symbol, authority_address)               | timestamp                                                                                 |
-//! | `upgr_ann`    | (symbol, authority)                       | (wasm_hash, announced_at, executable_at)                                                  |
-//! | `upgr_exe`    | (symbol, authority)                       | (wasm_hash, announced_at, executable_at)                                                  |
-//! | `upgr_can`    | (symbol, authority)                       | (wasm_hash, announced_at, executable_at)                                                  |
-//! | `orc_init`    | (symbol, oracle_address)                  | timestamp                                                                                 |
-//! | `mile_en`     | (symbol, schedule_id)                     | (grantor, milestone_count, timestamp)                                                     |
-//! | `mile_att`    | (symbol, schedule_id)                     | (oracle, milestone_index, timestamp)                                                      |
-//! | `nft_init`    | (symbol, nft_contract)                    | timestamp                                                                                 |
-//!
-//! ## SAC Token Support
-//!
-//! The contract supports any Stellar Asset Contract (SAC) token, including:
-//! - Native XLM (wrapped as SAC)
-//! - Classic Stellar assets (wrapped as SAC)
-//! - Custom Soroban tokens implementing the token interface
-//!
-//! Token contracts must implement the standard `transfer` function. The contract
-//! verifies token transfers succeed and stores the token address in each schedule.
+//! | `"Insufficient balance or below minimum reserve"` | `claim` transfer fails due to balance constraints or Stellar minimum reserve |
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, token, vec, Address, BytesN,
@@ -1026,11 +996,16 @@ impl VestFlowContract {
         schedule.claimed += claimable;
 
         let contract_address = env.current_contract_address();
-        token::Client::new(&env, &schedule.token).transfer(
-            &contract_address,
-            &schedule.beneficiary,
-            &claimable,
-        );
+        let token_client = token::Client::new(&env, &schedule.token);
+        
+        // Use try_transfer to catch balance-related errors and provide a clearer message
+        token_client
+            .try_transfer(
+                &contract_address,
+                &schedule.beneficiary,
+                &claimable,
+            )
+            .expect("Insufficient balance or below minimum reserve");
 
         env.storage()
             .instance()
