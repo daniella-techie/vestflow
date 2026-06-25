@@ -158,22 +158,22 @@ pub struct VestingSchedule {
     /// Total tokens locked into this schedule (in stroops / base units).
     pub total_amount: i128,
     /// Tokens already claimed by the beneficiary.
-    pub claimed: i128,
+    pub claimed_amount: i128,
     /// Unix timestamp when vesting begins.
     pub start_time: u64,
     /// Vesting duration in seconds.
-    pub duration: u64,
+    pub duration_seconds: u64,
     /// Cliff in seconds from `start_time`.
     ///
     /// - `Linear`: ignored.
     /// - `Cliff`: tokens unlock all-at-once after this many seconds.
     /// - `LinearWithCliff`: no tokens until this point; linear from here to end.
     /// - `Graded`: ignored (milestones define the schedule).
-    pub cliff_duration: u64,
+    pub cliff_seconds: u64,
     /// Lockup period in seconds from `start_time`.
     /// During lockup, tokens are vested (earned) but non-transferable.
     /// Beneficiary can claim after lockup expires even if tokens vested earlier.
-    /// Must be >= cliff_duration.
+    /// Must be >= cliff_seconds.
     pub lockup_duration: u64,
     pub kind: VestingKind,
     /// Whether the grantor can revoke unvested tokens.
@@ -238,14 +238,14 @@ impl VestingSchedule {
         }
         match self.kind {
             VestingKind::Cliff => {
-                if elapsed >= self.cliff_duration {
+                if elapsed >= self.cliff_seconds {
                     self.total_amount
                 } else {
                     0
                 }
             }
             VestingKind::Linear => {
-                if elapsed >= self.duration {
+                if elapsed >= self.duration_seconds {
                     self.total_amount
                 } else {
                     // Guard: total_amount * elapsed may overflow i128 for
@@ -253,23 +253,23 @@ impl VestingSchedule {
                     // overflow — the caller can never receive more than that.
                     self.total_amount
                         .checked_mul(elapsed as i128)
-                        .and_then(|n| n.checked_div(self.duration as i128))
+                        .and_then(|n| n.checked_div(self.duration_seconds as i128))
                         .unwrap_or(self.total_amount)
                 }
             }
             VestingKind::LinearWithCliff => {
                 // Before cliff: nothing vests.
-                if elapsed < self.cliff_duration {
+                if elapsed < self.cliff_seconds {
                     return 0;
                 }
                 // After full duration: everything is vested.
-                if elapsed >= self.duration {
+                if elapsed >= self.duration_seconds {
                     return self.total_amount;
                 }
-                // Between cliff and end: linear from cliff_duration to duration.
+                // Between cliff and end: linear from cliff_seconds to duration_seconds.
                 // Both subtractions are safe because of the bounds checked above.
-                let linear_duration = (self.duration - self.cliff_duration) as i128;
-                let linear_elapsed = (elapsed - self.cliff_duration) as i128;
+                let linear_duration = (self.duration_seconds - self.cliff_seconds) as i128;
+                let linear_elapsed = (elapsed - self.cliff_seconds) as i128;
                 // Guard: same overflow risk as the Linear branch.
                 self.total_amount
                     .checked_mul(linear_elapsed)
@@ -305,8 +305,8 @@ impl VestingSchedule {
             return 0;
         }
         
-        if vested > self.claimed {
-            vested - self.claimed
+        if vested > self.claimed_amount {
+            vested - self.claimed_amount
         } else {
             0
         }
@@ -558,10 +558,10 @@ impl VestFlowContract {
             beneficiary: beneficiary.clone(),
             token: token.clone(),
             total_amount,
-            claimed: 0,
+            claimed_amount: 0,
             start_time,
-            duration,
-            cliff_duration,
+            duration_seconds: duration,
+            cliff_seconds: cliff_duration,
             lockup_duration,
             kind: kind.clone(),
             revocable,
@@ -669,10 +669,10 @@ impl VestFlowContract {
             beneficiary: beneficiary.clone(),
             token: token.clone(),
             total_amount,
-            claimed: 0,
+            claimed_amount: 0,
             start_time,
-            duration,
-            cliff_duration: 0,
+            duration_seconds: duration,
+            cliff_seconds: 0,
             lockup_duration,
             kind: VestingKind::Graded,
             revocable,
@@ -984,7 +984,7 @@ impl VestFlowContract {
                 .checked_mul(max_unlock_percentage as i128)
                 .and_then(|n| n.checked_div(100))
                 .unwrap_or(0)
-                - schedule.claimed;
+                - schedule.claimed_amount;
 
             claimable = claimable.min(max_claimable.max(0));
         }
@@ -993,7 +993,7 @@ impl VestFlowContract {
             return Err(VestFlowError::NothingToClaim);
         }
 
-        schedule.claimed += claimable;
+        schedule.claimed_amount += claimable;
 
         let contract_address = env.current_contract_address();
         let token_client = token::Client::new(&env, &schedule.token);
@@ -1016,7 +1016,7 @@ impl VestFlowContract {
                 schedule.beneficiary.clone(),
                 schedule.token.clone(),
             ),
-            (schedule_id, claimable, schedule.claimed),
+            (schedule_id, claimable, schedule.claimed_amount),
         );
 
         Self::release_lock(&env);
