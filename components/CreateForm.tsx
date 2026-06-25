@@ -36,8 +36,11 @@ export default function CreateForm() {
         form.beneficiary,
         form.amount,
         form.tokenAddress,
-        startTs, parseInt(form.durationDays), parseInt(form.cliffDays),
-        form.kind, form.revocable,
+        startTs,
+        parseInt(form.durationDays),
+        parseInt(form.cliffDays),
+        form.kind,
+        form.revocable,
       );
       setTxHash(hash); setStatus("done");
     } catch (e: any) {

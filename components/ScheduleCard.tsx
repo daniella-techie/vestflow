@@ -17,6 +17,7 @@ import {
 import { useWallet } from "@/lib/WalletContext";
 import { useToast } from "@/components/Toast";
 import CopyButton from "@/components/CopyButton";
+import ClaimModal from "@/components/ClaimModal";
 import VestingChart from "@/components/VestingChart";
 import { useXlmPrice, formatUsd } from "@/lib/price";
 
@@ -31,6 +32,7 @@ export default function ScheduleCard({
   const { addToast, updateToast } = useToast();
   const [loading, setLoading] = useState<"claim" | "revoke" | null>(null);
   const [showChart, setShowChart] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
   const xlmPrice = useXlmPrice();
 
   const now = Math.floor(Date.now() / 1000);
@@ -261,10 +263,8 @@ export default function ScheduleCard({
       {publicKey && !schedule.revoked && (
         <div className="flex gap-2 mt-1">
           {isBeneficiary && claimableAmt > 0n && (
-            <button onClick={handleClaim} disabled={!!loading} className="btn-primary text-xs rounded-lg px-3 py-1.5 font-semibold text-white disabled:opacity-60">
-              {loading === "claim"
-                ? "Processing…"
-                : `Claim ${stroopsToXlm(claimableAmt)} XLM${xlmPrice !== null ? ` (${formatUsd(claimableAmt, xlmPrice)})` : ""}`}
+            <button onClick={() => setShowClaimModal(true)} className="btn-primary text-xs rounded-lg px-3 py-1.5 font-semibold text-white">
+              Claim {stroopsToXlm(claimableAmt)} XLM{xlmPrice !== null ? ` (${formatUsd(claimableAmt, xlmPrice)})` : ""}
             </button>
           )}
           {isGrantor && schedule.revocable && progress < 100 && (
@@ -278,6 +278,15 @@ export default function ScheduleCard({
           )}
         </div>
       )}
+
+      <ClaimModal
+        schedule={schedule}
+        claimableAmt={claimableAmt}
+        tokenSymbol={tokenSymbol}
+        open={showClaimModal}
+        onClose={() => setShowClaimModal(false)}
+        onSuccess={() => { setShowClaimModal(false); onAction(); }}
+      />
     </div>
   );
 }

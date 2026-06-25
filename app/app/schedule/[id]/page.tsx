@@ -5,6 +5,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/components/Toast";
 import VestingChart from "@/components/VestingChart";
+import ClaimModal from "@/components/ClaimModal";
 import {
   getSchedule,
   ScheduleData,
@@ -12,7 +13,6 @@ import {
   vestingProgress,
   formatDate,
   formatCliffDate,
-  claimVested,
   revokeSchedule,
   parseContractError,
   NETWORK,
@@ -28,6 +28,7 @@ export default function ScheduleDetailPage() {
   const [schedule, setSchedule] = useState<ScheduleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<"claim" | "revoke" | null>(null);
+  const [showClaimModal, setShowClaimModal] = useState(false);
   const [err, setErr] = useState("");
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const xlmPrice = useXlmPrice();
@@ -42,33 +43,6 @@ export default function ScheduleDetailPage() {
   useEffect(() => { load(); }, [id]);
 
   const now = Math.floor(Date.now() / 1000);
-
-  const handleClaim = async () => {
-    if (!publicKey || !schedule) return;
-    setActionLoading("claim"); setErr(""); setLastTxHash(null);
-    const toastId = addToast({
-      status: "pending",
-      title: "Claim pending…",
-      message: "Waiting for transaction to confirm.",
-    });
-    try {
-      const hash = await claimVested(publicKey, schedule.id);
-      setLastTxHash(hash);
-      updateToast(toastId, {
-        status: "success",
-        title: "Tokens claimed!",
-        message: `${stroopsToXlm(claimableAmt)} XLM transferred to your wallet.`,
-        txHash: hash,
-        network: NETWORK,
-      });
-      await load();
-    }
-    catch (e: any) {
-      setErr(parseContractError(e));
-      updateToast(toastId, { status: "error", title: "Claim failed", message: parseContractError(e) });
-    }
-    finally { setActionLoading(null); }
-  };
 
   const handleRevoke = async () => {
     if (!publicKey || !schedule) return;
@@ -285,13 +259,10 @@ export default function ScheduleDetailPage() {
             <div className="flex gap-3 flex-wrap">
               {isBeneficiary && claimableAmt > 0n && (
                 <button
-                  onClick={handleClaim}
-                  disabled={!!actionLoading}
-                  className="btn-primary rounded-xl px-5 py-2.5 font-semibold text-white text-sm disabled:opacity-60"
+                  onClick={() => setShowClaimModal(true)}
+                  className="btn-primary rounded-xl px-5 py-2.5 font-semibold text-white text-sm"
                 >
-                  {actionLoading === "claim"
-                    ? "Processing…"
-                    : `Claim ${stroopsToXlm(claimableAmt)} XLM${xlmPrice !== null ? ` (${formatUsd(claimableAmt, xlmPrice)})` : ""}`}
+                  Claim {stroopsToXlm(claimableAmt)} XLM{xlmPrice !== null ? ` (${formatUsd(claimableAmt, xlmPrice)})` : ""}
                 </button>
               )}
               {isGrantor && schedule.revocable && progress < 100 && (
@@ -307,6 +278,15 @@ export default function ScheduleDetailPage() {
           )}
         </div>
       </main>
+
+      <ClaimModal
+        schedule={schedule}
+        claimableAmt={claimableAmt}
+        tokenSymbol={tokenSymbol}
+        open={showClaimModal}
+        onClose={() => setShowClaimModal(false)}
+        onSuccess={() => { setShowClaimModal(false); load(); }}
+      />
     </>
   );
 }
